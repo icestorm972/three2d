@@ -49,11 +49,11 @@ void read_lines(char *file, void *ctx, void (*handle_line)(void *ctx, string_sli
     
 }
 
-mesh_t parse_obj(void* obj, size_t size){
+mesh_t parse_obj(void* obj, size_t size, primitives prim_type){
     mesh_t mesh = {};
     mesh.vertices = chunk_array_create(sizeof(vector3), 1000);
     mesh.segments = chunk_array_create(sizeof(int), 1000);
-    mesh.primitive_type = prim_trig;
+    mesh.primitive_type = prim_type;
     read_lines(obj, &mesh, handle_obj_line);
     return mesh;
 }

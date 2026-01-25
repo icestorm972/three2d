@@ -8,6 +8,7 @@
 #include "memory.h"
 
 draw_ctx ctx = {};
+float depth = 2;
 
 tern draw_segment(int i0, int i1, mesh_t *m, size_t num_verts, vector2 origin){
     if (i0 < 0 || (uint64_t)i0 >= num_verts){
@@ -21,12 +22,15 @@ tern draw_segment(int i0, int i1, mesh_t *m, size_t num_verts, vector2 origin){
     vector3 v0 = mesh_get_vertices(m, i0);
     vector3 v1 = mesh_get_vertices(m, i1);
     
+    v0.z += depth;
+    v1.z += depth;
+    
     if (v0.z < 0.1 && v1.z < 0.1) return false;
     
-    float x0 = (v0.x*100/maxf(0.1f,v0.z+5))+origin.x;
-    float x1 = (v1.x*100/maxf(0.1f,v1.z+5))+origin.x;
-    float y0 = (-v0.y*100/maxf(0.1f,v0.z+5))+origin.y;
-    float y1 = (-v1.y*100/maxf(0.1f,v1.z+5))+origin.y;
+    float x0 = (v0.x*100/maxf(0.1f,v0.z))+origin.x;
+    float x1 = (v1.x*100/maxf(0.1f,v1.z))+origin.x;
+    float y0 = (-v0.y*100/maxf(0.1f,v0.z))+origin.y;
+    float y1 = (-v1.y*100/maxf(0.1f,v1.z))+origin.y;
     
     fb_draw_line(&ctx, x0, y0, x1, y1, 0xFFB4DD13);
     
@@ -38,13 +42,13 @@ int main(int argc, char* argv[]){
     size_t file_size = 0;
     char *file = read_full_file("/resources/Windmill.obj",&file_size);
     
-    mesh_t mesh = parse_obj(file, file_size);
+    primitives prim_type = prim_trig;
+    mesh_t mesh = parse_obj(file, file_size, prim_type);
     
     ctx.width = 1920;
     ctx.height = 1080;
     request_draw_ctx(&ctx);
     vector2 mid = {ctx.width/2.f,ctx.height/2.f};
-    primitives prim_type = prim_trig;
     
     if (!prim_type){
         print("No primitive type specified");
@@ -83,9 +87,10 @@ int main(int argc, char* argv[]){
         mouse_data mouse = {};
         get_mouse_status(&mouse);
         if (mouse_button_down(&mouse, 1)){
-            mid.x += mouse.raw.x*dt;
-            mid.y += mouse.raw.y*dt;
+            mid.x += mouse.raw.x * 25 * dt;
+            mid.y += mouse.raw.y * 25 * dt;
         }
+        depth -= mouse.raw.scroll * 5 * dt;
         memset(buf, 0, 16);
         string_format_buf(buf,16,"%i FPS",(int)(1/dt));
         fb_draw_string(&ctx, buf, 0,0, 2, 0xFFFFFFFF);

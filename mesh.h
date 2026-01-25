@@ -1,12 +1,7 @@
 #pragma once
 
 #include "data/struct/chunk_array.h"
-
-typedef struct {
-    float x;
-    float y;
-    float z;
-} vector3;
+#include "math/vector3.h"
 
 typedef enum {
     prim_none,
