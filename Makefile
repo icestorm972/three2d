@@ -24,10 +24,10 @@ LOCATION := ~/os/fs/redos/user/
 all: prepare $(PACKAGE)/$(TARGET)
 
 prepare:
-	# mkdir -p resources
-	# mkdir -p $(BUILD_DIR)
-	# mkdir -p $(PACKAGE)
-	# cp -r resources $(PACKAGE)
+	mkdir -p resources
+	mkdir -p $(BUILD_DIR)
+	mkdir -p $(PACKAGE)
+	cp -r resources $(PACKAGE)
 
 $(PACKAGE)/$(TARGET): $(OBJ)
 	$(VLD) $(LDFLAGS) -o $(PACKAGE)/$(ELF) $(addprefix $(BUILD_DIR)/,$(notdir $(OBJ))) ~/redlib/libshared.a

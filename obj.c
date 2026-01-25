@@ -32,7 +32,7 @@ void handle_obj_line(void *ctx, string_slice line){
             string_slice sl = scan_to(&s, ' ');
             if (sl.length == 0) break;
             handle_trig(mesh, sl);
-        } while (!scan_eof(&s));//TODO: mesh triangulation?
+        } while (!scan_eof(&s));//TODO: mesh triangulation. Should be enough to do first point + latest point + current point for each > 3
     }
 }
 

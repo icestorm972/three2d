@@ -7,10 +7,10 @@
 #include "types/matrix4.h"
 #include "types/vector4.h"
 #include "math/vector.h"
+#include "test.h"
 
 draw_ctx ctx = {};
 vector3 camera_pos = {0,0,2};
-
 
 matrix4x4 proj_matrix;
 
@@ -35,7 +35,7 @@ vector4 vert_shader(vector3 pos, vector3 camera){
     return out_v;
 }
 
-static inline bool should_clip(vector4 v){
+static inline bool should_clip(vector4 v){//FIXME
     return  //v.x <= -v.w || v.x >= v.w ||
             // v.y <= -v.w || v.y >= v.w || 
             // v.z <= -v.w || v.z >= v.w ||
@@ -43,35 +43,62 @@ static inline bool should_clip(vector4 v){
             false;
 }
 
-tern draw_segment(int i0, int i1, mesh_t *m, size_t num_verts, vector2 origin){
-    if (i0 < 0 || (uint64_t)i0 >= num_verts){
-        print("Wrong index %i. %i vertices",i0,num_verts);
-        return -1;
-    }
-    if (i0 < 0 || (uint64_t)i1 >= num_verts){
-        print("Wrong index %i. %i vertices",i1,num_verts);
-        return -1;
-    }
+void rasterize_triangle(vector3 v0, vector3 v1, vector3 v2){
+    //Stub
+}
+
+void rasterize_quad(vector3 v0, vector3 v1, vector3 v2, vector3 v3){
+    //Stub
+}
+
+tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh_t *m, size_t num_verts, vector2 origin, gpu_size screen){
+    int i0 = mesh_get_segment(m, segment_index+0);
+    int i1 = mesh_get_segment(m, segment_index+1);
+    int i2 = prim_type > prim_line ? mesh_get_segment(m, segment_index+2) : -1;
+    int i3 = prim_type > prim_trig ? mesh_get_segment(m, segment_index+3) : -1;
+    assert_true(i0 >= 0 && (uint64_t)i0 < num_verts, "Wrong index %i. Num verts %i",i0,num_verts);
+    assert_true(i1 >= 0 && (uint64_t)i1 < num_verts, "Wrong index %i. Num verts %i",i1,num_verts);
+    if (i2 != -1) assert_true(i2 >= 0 && (uint64_t)i2 < num_verts, "Wrong index %i. Num verts %i",i2,num_verts);
+    if (i3 != -1) assert_true(i3 >= 0 && (uint64_t)i3 < num_verts, "Wrong index %i. Num verts %i",i3,num_verts);
     
     vector4 c0 = vert_shader(mesh_get_vertices(m, i0), camera_pos);
     vector4 c1 = vert_shader(mesh_get_vertices(m, i1), camera_pos);
+    vector4 c2 = i2 > -1 ? vert_shader(mesh_get_vertices(m, i1), camera_pos) : (vector4){};
+    vector4 c3 = i3 > -1 ? vert_shader(mesh_get_vertices(m, i1), camera_pos) : (vector4){};
     
-    
-    if (should_clip(c0) && should_clip(c1)) return false;
+    if (should_clip(c0) && should_clip(c1)
+        && (i2 > -1 ? should_clip(c2) : true)
+        && (i3 > -1 ? should_clip(c3) : true)
+    ) return -1;
     
     //NDC
     vector3 v0 = {c0.x/c0.w,c0.y/c0.w,c0.z/c0.w};
     vector3 v1 = {c1.x/c1.w,c1.y/c1.w,c1.z/c1.w};
+    vector3 v2 = i2 < 0 ? (vector3){} : (vector3){c2.x/c2.w,c2.y/c2.w,c2.z/c2.w};
+    vector3 v3 = i3 < 0 ? (vector3){} : (vector3){c3.x/c3.w,c3.y/c3.w,c3.z/c3.w};
     
-    //Basic rasterization
+    float x0 = (v0.x+1)*0.5f*(screen.width-1);
+    float x1 = (v1.x+1)*0.5f*(screen.width-1);
     
-    float x0 = (v0.x+1)*0.5f*(1920-1);
-    float x1 = (v1.x+1)*0.5f*(1920-1);
-    
-    float y0 = (1-((v0.y+1)*0.5f))*(1080-1);
-    float y1 = (1-((v1.y+1)*0.5f))*(1080-1);
+    float y0 = (1-((v0.y+1)*0.5f))*(screen.height-1);
+    float y1 = (1-((v1.y+1)*0.5f))*(screen.height-1);
     
     fb_draw_line(&ctx, x0, y0, x1, y1, 0xFFB4DD13);
+    
+    if (i2 >= 0){
+        float x2 = (v2.x+1)*0.5f*(screen.width-1);
+        float y2 = (1-((v2.y+1)*0.5f))*(screen.height-1);
+        
+        fb_draw_line(&ctx, x1, y1, x2, y2, 0xFFB4DD13);
+        if (i3 >= 0){
+            float x3 = (v3.x+1)*0.5f*(screen.width-1);
+            float y3 = (1-((v3.y+1)*0.5f))*(screen.height-1);
+            fb_draw_line(&ctx, x2, y2, x3, y3, 0xFFB4DD13);
+            rasterize_quad(v0,v1,v2,v3);
+        } else {
+            rasterize_triangle(v0,v1,v2);
+        }
+    }
     
     return true;
 }
@@ -97,9 +124,11 @@ int main(int argc, char* argv[]){
     size_t num_segments = mesh_num_segments(&mesh);
     size_t num_verts = mesh_num_verts(&mesh);
     
+    assert_true(num_segments && num_verts, "Empty mesh");
+    
     char buf[16];
     
-    build_proj_matrix(72, (float)ctx.width/(float)ctx.height, 0.1f, 500);
+    build_proj_matrix(72, (float)ctx.width/(float)ctx.height, 0.1f, 100);
     
     float last_time = get_time()/1000.f;
     while (!should_close_ctx()){
@@ -111,11 +140,7 @@ int main(int argc, char* argv[]){
         fb_clear(&ctx, 0);
         
         for (size_t i = 0; i < num_segments; i++){
-            for (int j = 0; j < (int)prim_type; j++){
-                int i0 = mesh_get_segment(&mesh, (i * prim_type)+((j)%prim_type));
-                int i1 = mesh_get_segment(&mesh, (i * prim_type)+((j+1)%prim_type));
-                if (draw_segment(i0, i1, &mesh, num_verts, mid) == -1) return -1;
-            }
+            if (draw((i * prim_type), num_segments * prim_type, prim_type, &mesh, num_verts, mid, (gpu_size){ctx.width,ctx.height}) == -1) return -1;
         }
         commit_draw_ctx(&ctx);
 

@@ -17,6 +17,6 @@ gpu {
     }
 }
 
-main {
+int main {
     gpu();
 }
