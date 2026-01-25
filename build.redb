@@ -10,6 +10,7 @@ gpu {
     
     source("obj.c");
     source("main.c");
+    source("mesh.c");
     
     if (compile()){
         run();

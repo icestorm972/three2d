@@ -2,26 +2,24 @@
 #include "input_keycodes.h"
 #include "ui/draw/draw.h"
 #include "math/vector.h"
-#include "std/string_slice.h"
-#include "data/struct/chunked_list.h"
-#include "data/format/scanner/scanner.h"
+#include "data/struct/chunk_array.h"
 #include "obj.h"
 #include "files/helpers.h"
 #include "memory.h"
 
 draw_ctx ctx = {};
 
-tern draw_segment(int i0, int i1, vector3* v, int num_verts, vector2 origin){
-    if (i0 >= num_verts){
+tern draw_segment(int i0, int i1, mesh_t *m, size_t num_verts, vector2 origin){
+    if (i0 < 0 || (uint64_t)i0 >= num_verts){
         print("Wrong index %i. %i vertices",i0,num_verts);
         return -1;
     }
-    if (i1 >= num_verts){
+    if (i0 < 0 || (uint64_t)i1 >= num_verts){
         print("Wrong index %i. %i vertices",i1,num_verts);
         return -1;
     }
-    vector3 v0 = v[i0];
-    vector3 v1 = v[i1];
+    vector3 v0 = mesh_get_vertices(m, i0);
+    vector3 v1 = mesh_get_vertices(m, i1);
     
     if (v0.z < 0.1 && v1.z < 0.1) return false;
     
@@ -35,27 +33,12 @@ tern draw_segment(int i0, int i1, vector3* v, int num_verts, vector2 origin){
     return true;
 }
 
-void read_lines(char *file, void (*handle_line)(string_slice line)){
-    char *point = file;
-    do {
-        char *new_point = (char*)seek_to(point, '\n');
-        if (new_point == point) break;
-        handle_line(make_string_slice(point, 0, new_point-point-2));
-        point = new_point;
-    } while(point);
-    
-}
-
-vector3 v[4096];
-int s[10000];
-
-int v_count, s_count;
-
 int main(int argc, char* argv[]){
     
-    char *file = read_full_file("/resources/Windmill.obj",0);
+    size_t file_size = 0;
+    char *file = read_full_file("/resources/Windmill.obj",&file_size);
     
-    read_lines(file, handle_obj_line);
+    mesh_t mesh = parse_obj(file, file_size);
     
     ctx.width = 1920;
     ctx.height = 1080;
@@ -68,12 +51,8 @@ int main(int argc, char* argv[]){
         return -1;
     }
     
-    if (s_count % prim_type != 0){
-        print("Wrong number of segments, found %i, must be a multiple of %i",s_count, prim_type);
-        return -1;
-    }
-    int num_segments = s_count/prim_type;
-    int num_verts = v_count;
+    size_t num_segments = mesh_num_segments(&mesh);
+    size_t num_verts = mesh_num_verts(&mesh);
     
     char buf[16];
     
@@ -86,11 +65,11 @@ int main(int argc, char* argv[]){
         last_time = time;
         fb_clear(&ctx, 0);
         
-        for (int i = 0; i < num_segments; i++){
+        for (size_t i = 0; i < num_segments; i++){
             for (int j = 0; j < (int)prim_type; j++){
-                int i0 = s[(i * prim_type)+((j)%prim_type)];
-                int i1 = s[(i * prim_type)+((j+1)%prim_type)];
-                if (draw_segment(i0, i1, v, num_verts, mid) == -1) return -1;
+                int i0 = mesh_get_segment(&mesh, (i * prim_type)+((j)%prim_type));
+                int i1 = mesh_get_segment(&mesh, (i * prim_type)+((j+1)%prim_type));
+                if (draw_segment(i0, i1, &mesh, num_verts, mid) == -1) return -1;
             }
         }
         commit_draw_ctx(&ctx);

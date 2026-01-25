@@ -1,38 +1,57 @@
 #include "obj.h"
 #include "data/format/scanner/scanner.h"
 
-extern vector3 v[4096];
-extern int s[10000];
-
-extern int v_count, s_count;
-
-void handle_trig(string_slice sl){
+void handle_trig(mesh_t *mesh, string_slice sl){
     char *s1 = (char*)seek_to(sl.data, '/');
-    s[s_count++] = (int)(parse_int64(sl.data,s1-sl.data-1) & 0xFFFFFFFF) - 1;
+    int segment = (parse_int64(sl.data,s1-sl.data-1) & 0xFFFFFFFF) - 1;
+    chunk_array_push(mesh->segments, &segment);
     //TODO: extra trig data
 }
 
-void handle_obj_line(string_slice line){
+void handle_obj_line(void *ctx, string_slice line){
+    mesh_t *mesh = (mesh_t *)ctx;
     Scanner s = scanner_make(line.data, line.length);
     char first = scan_next(&s);
     if (first == 'v'){
         if (scan_next(&s) != ' ') return;//TODO: other options
+        vector3 vector = {};
         string_slice v1 = scan_to(&s, ' ');
         if (!v1.length) return;
-        v[v_count].x = parse_float(v1.data, v1.length);
+        vector.x = parse_float(v1.data, v1.length);
         string_slice v2 = scan_to(&s, ' ');
         if (!v2.length) return;
-        v[v_count].y = parse_float(v2.data, v2.length);
+        vector.y = parse_float(v2.data, v2.length);
         string_slice v3 = scan_to(&s, ' ');
         if (!v3.length) return;
-        v[v_count++].z = parse_float(v3.data, v3.length);
+        vector.z = parse_float(v3.data, v3.length);
+        chunk_array_push(mesh->vertices, &vector);
     }
     if (first == 'f'){
         if (scan_next(&s) != ' ') return;
         do {
             string_slice sl = scan_to(&s, ' ');
             if (sl.length == 0) break;
-            handle_trig(sl);
+            handle_trig(mesh, sl);
         } while (!scan_eof(&s));//TODO: mesh triangulation?
     }
+}
+
+void read_lines(char *file, void *ctx, void (*handle_line)(void *ctx, string_slice line)){
+    char *point = file;
+    do {
+        char *new_point = (char*)seek_to(point, '\n');
+        if (new_point == point) break;
+        handle_line(ctx, make_string_slice(point, 0, new_point-point-2));
+        point = new_point;
+    } while(point);
+    
+}
+
+mesh_t parse_obj(void* obj, size_t size){
+    mesh_t mesh = {};
+    mesh.vertices = chunk_array_create(sizeof(vector3), 1000);
+    mesh.segments = chunk_array_create(sizeof(int), 1000);
+    mesh.primitive_type = prim_trig;
+    read_lines(obj, &mesh, handle_obj_line);
+    return mesh;
 }
