@@ -2,13 +2,75 @@
 #include "input_keycodes.h"
 #include "ui/draw/draw.h"
 #include "math/vector.h"
-#include "data/struct/chunk_array.h"
 #include "obj.h"
 #include "files/helpers.h"
 #include "memory.h"
 
 draw_ctx ctx = {};
-float depth = 2;
+vector3 camera_pos = {0,0,2};
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+    float w;
+} vector4;
+
+typedef struct {
+    float m[4][4];//Row,Column
+} matrix4x4;
+matrix4x4 proj_matrix;
+
+matrix4x4 matrix_zero(){
+    return (matrix4x4){
+        .m = {
+            { 0.0, 0.0, 0.0, 0.0},
+            { 0.0, 0.0, 0.0, 0.0},
+            { 0.0, 0.0, 0.0, 0.0},
+            { 0.0, 0.0, 0.0, 0.0}, 
+        }
+    };
+}
+
+void build_proj_matrix(float fov, float aspect, float near, float far){
+    float tanfov = 0.726542528f;
+    
+    proj_matrix = matrix_zero();
+    
+    proj_matrix.m[0][0] = 1.0f/(tanfov*aspect);
+    proj_matrix.m[1][1] = 1.0f/tanfov;
+    proj_matrix.m[2][2] = -(far+near)/(far-near);
+    proj_matrix.m[3][2] = -1;
+    proj_matrix.m[2][3] = -(2*far*near)/(far-near);
+    
+}
+
+vector4 matrix4_mul(vector4 v, matrix4x4 m){
+    vector4 out = {};
+    
+    out.x = v.x*m.m[0][0] + v.y*m.m[1][0] + v.z*m.m[2][0] + v.w*m.m[3][0];
+    out.y = v.x*m.m[0][1] + v.y*m.m[1][1] + v.z*m.m[2][1] + v.w*m.m[3][1];
+    out.z = v.x*m.m[0][2] + v.y*m.m[1][2] + v.z*m.m[2][2] + v.w*m.m[3][2];
+    out.w = v.x*m.m[0][3] + v.y*m.m[1][3] + v.z*m.m[2][3] + v.w*m.m[3][3];
+    
+    return out;
+}
+
+vector4 vert_shader(vector3 pos, vector3 camera){
+    vector4 cam_pos = (vector4){pos.x + camera.x, pos.y - camera.y, pos.z - camera.z, 1};
+    
+    vector4 out_v = matrix4_mul(cam_pos, proj_matrix);
+    
+    return out_v;
+}
+
+static inline bool should_clip(vector4 v){
+    return  //v.x <= -v.w || v.x >= v.w ||
+            // v.y <= -v.w || v.y >= v.w || 
+            // v.z <= -v.w || v.z >= v.w ||
+            // 0 <= v.w;
+            false;
+}
 
 tern draw_segment(int i0, int i1, mesh_t *m, size_t num_verts, vector2 origin){
     if (i0 < 0 || (uint64_t)i0 >= num_verts){
@@ -19,18 +81,24 @@ tern draw_segment(int i0, int i1, mesh_t *m, size_t num_verts, vector2 origin){
         print("Wrong index %i. %i vertices",i1,num_verts);
         return -1;
     }
-    vector3 v0 = mesh_get_vertices(m, i0);
-    vector3 v1 = mesh_get_vertices(m, i1);
     
-    v0.z += depth;
-    v1.z += depth;
+    vector4 c0 = vert_shader(mesh_get_vertices(m, i0), camera_pos);
+    vector4 c1 = vert_shader(mesh_get_vertices(m, i1), camera_pos);
     
-    if (v0.z < 0.1 && v1.z < 0.1) return false;
     
-    float x0 = (v0.x*100/maxf(0.1f,v0.z))+origin.x;
-    float x1 = (v1.x*100/maxf(0.1f,v1.z))+origin.x;
-    float y0 = (-v0.y*100/maxf(0.1f,v0.z))+origin.y;
-    float y1 = (-v1.y*100/maxf(0.1f,v1.z))+origin.y;
+    if (should_clip(c0) && should_clip(c1)) return false;
+    
+    //NDC
+    vector3 v0 = {c0.x/c0.w,c0.y/c0.w,c0.z/c0.w};
+    vector3 v1 = {c1.x/c1.w,c1.y/c1.w,c1.z/c1.w};
+    
+    //Basic rasterization
+    
+    float x0 = (v0.x+1)*0.5f*(1920-1);
+    float x1 = (v1.x+1)*0.5f*(1920-1);
+    
+    float y0 = (1-((v0.y+1)*0.5f))*(1080-1);
+    float y1 = (1-((v1.y+1)*0.5f))*(1080-1);
     
     fb_draw_line(&ctx, x0, y0, x1, y1, 0xFFB4DD13);
     
@@ -60,6 +128,8 @@ int main(int argc, char* argv[]){
     
     char buf[16];
     
+    build_proj_matrix(72, (float)ctx.width/(float)ctx.height, 0.1f, 500);
+    
     float last_time = get_time()/1000.f;
     while (!should_close_ctx()){
         begin_drawing(&ctx);
@@ -87,10 +157,10 @@ int main(int argc, char* argv[]){
         mouse_data mouse = {};
         get_mouse_status(&mouse);
         if (mouse_button_down(&mouse, 1)){
-            mid.x += mouse.raw.x * 25 * dt;
-            mid.y += mouse.raw.y * 25 * dt;
+            camera_pos.x += mouse.raw.x * dt;
+            camera_pos.y += mouse.raw.y * dt;
         }
-        depth -= mouse.raw.scroll * 5 * dt;
+        camera_pos.z -= mouse.raw.scroll * 25 * dt;
         memset(buf, 0, 16);
         string_format_buf(buf,16,"%i FPS",(int)(1/dt));
         fb_draw_string(&ctx, buf, 0,0, 2, 0xFFFFFFFF);
