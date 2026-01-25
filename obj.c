@@ -17,10 +17,10 @@ void handle_obj_line(void *ctx, string_slice line){
         vector3 vector = {};
         string_slice v1 = scan_to(&s, ' ');
         if (!v1.length) return;
-        vector.x = parse_float(v1.data, v1.length);
+        vector.x = parse_float(v1.data, v1.length-1);
         string_slice v2 = scan_to(&s, ' ');
         if (!v2.length) return;
-        vector.y = parse_float(v2.data, v2.length);
+        vector.y = parse_float(v2.data, v2.length-1);
         string_slice v3 = scan_to(&s, ' ');
         if (!v3.length) return;
         vector.z = parse_float(v3.data, v3.length);
@@ -41,7 +41,9 @@ void read_lines(char *file, void *ctx, void (*handle_line)(void *ctx, string_sli
     do {
         char *new_point = (char*)seek_to(point, '\n');
         if (new_point == point) break;
-        handle_line(ctx, make_string_slice(point, 0, new_point-point-2));
+        int red = 1;
+        if (*(new_point-1) == '\r') red++;
+        handle_line(ctx, make_string_slice(point, 0, new_point-point-red));
         point = new_point;
     } while(point);
     
