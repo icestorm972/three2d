@@ -1,0 +1,36 @@
+@includeC("data/struct/chunk_array.h")
+@includeC("types/vector3.h")
+
+enum primitives {
+    none,
+    pixel,
+    line,
+    trig,
+    quad
+}
+
+struct mesh {
+    chunk_array:vector3 vertices;
+    chunk_array:int segments;
+    primitives primitive_type;
+    
+    size_t num_verts {
+        return vertices.count();
+    }
+
+    size_t num_segments {
+        if (not primitive_type){ return 0; }
+        size_t size = segments.count();
+        if (size % primitive_type == 0) { return size/primitive_type; }
+        return 0;
+    }
+
+    int get_segment(size_t index){
+        return segments[index];
+    }
+    
+    vector3 get_vertex(size_t index){
+        return vertices[index];
+    }
+
+}

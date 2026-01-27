@@ -1,7 +1,15 @@
 @includeC("redbuild.h")
 @includeC("syscalls/syscalls.h")
 
-gpu {
+bool cred {
+    new_module("credgpu");
+    set_name("mesh");
+    source("mesh.cred");
+    return cred_compile();
+}
+
+bool gpu {
+    if (not cred()){ return false; }
     new_module("gpu");
     set_name("rend");
     

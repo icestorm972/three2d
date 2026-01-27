@@ -2,11 +2,11 @@
 #include "data/format/scanner/scanner.h"
 #include "syscalls/syscalls.h"
 
-void push_trig(mesh_t *m, int trig){
+void push_trig(mesh *m, int trig){
     chunk_array_push(m->segments, &trig);
 }
 
-int handle_trig(mesh_t *mesh, string_slice sl){
+int handle_trig(mesh *mesh, string_slice sl){
     char *s1 = (char*)seek_to(sl.data, '/');
     int segment = (parse_int64(sl.data,s1-sl.data-1) & 0xFFFFFFFF) - 1;
     push_trig(mesh, segment);
@@ -15,7 +15,7 @@ int handle_trig(mesh_t *mesh, string_slice sl){
 }
 
 void handle_obj_line(void *ctx, string_slice line){
-    mesh_t *mesh = (mesh_t *)ctx;
+    mesh *m = (mesh *)ctx;
     Scanner s = scanner_make(line.data, line.length);
     char first = scan_next(&s);
     if (first == 'v'){
@@ -30,7 +30,7 @@ void handle_obj_line(void *ctx, string_slice line){
         string_slice v3 = scan_to(&s, ' ');
         if (!v3.length) return;
         vector.z = parse_float(v3.data, v3.length);
-        chunk_array_push(mesh->vertices, &vector);
+        chunk_array_push(m->vertices, &vector);
     }
     if (first == 'f'){
         if (scan_next(&s) != ' ') return;
@@ -40,10 +40,10 @@ void handle_obj_line(void *ctx, string_slice line){
             string_slice sl = scan_to(&s, ' ');
             if (sl.length == 0) break;
             if (i > 2){
-                push_trig(mesh, first_s);
-                push_trig(mesh, last_s);
+                push_trig(m, first_s);
+                push_trig(m, last_s);
             }
-            int seg = handle_trig(mesh, sl);
+            int seg = handle_trig(m, sl);
             if (i == 0) first_s = seg;
             last_s = seg;
         };
@@ -63,11 +63,11 @@ void read_lines(char *file, void *ctx, void (*handle_line)(void *ctx, string_sli
     
 }
 
-mesh_t parse_obj(void* obj, size_t size, primitives prim_type){
-    mesh_t mesh = {};
-    mesh.vertices = chunk_array_create(sizeof(vector3), 1000);
-    mesh.segments = chunk_array_create(sizeof(int), 1000);
-    mesh.primitive_type = prim_type;
-    read_lines(obj, &mesh, handle_obj_line);
-    return mesh;
+mesh parse_obj(void* obj, size_t size, primitives prim_type){
+    mesh m = {};
+    m.vertices = chunk_array_create(sizeof(vector3), 1000);
+    m.segments = chunk_array_create(sizeof(int), 1000);
+    m.primitive_type = prim_type;
+    read_lines(obj, &m, handle_obj_line);
+    return m;
 }

@@ -51,20 +51,20 @@ void rasterize_quad(vector3 v0, vector3 v1, vector3 v2, vector3 v3){
     //Stub
 }
 
-tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh_t *m, size_t num_verts, vector2 origin, gpu_size screen){
+tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh *m, size_t num_verts, vector2 origin, gpu_size screen){
     int i0 = mesh_get_segment(m, segment_index+0);
     int i1 = mesh_get_segment(m, segment_index+1);
-    int i2 = prim_type > prim_line ? mesh_get_segment(m, segment_index+2) : -1;
-    int i3 = prim_type > prim_trig ? mesh_get_segment(m, segment_index+3) : -1;
+    int i2 = prim_type > primitives_line ? mesh_get_segment(m, segment_index+2) : -1;
+    int i3 = prim_type > primitives_trig ? mesh_get_segment(m, segment_index+3) : -1;
     assert_true(i0 >= 0 && (uint64_t)i0 < num_verts, "Wrong index %i. Num verts %i",i0,num_verts);
     assert_true(i1 >= 0 && (uint64_t)i1 < num_verts, "Wrong index %i. Num verts %i",i1,num_verts);
     if (i2 != -1) assert_true(i2 >= 0 && (uint64_t)i2 < num_verts, "Wrong index %i. Num verts %i",i2,num_verts);
     if (i3 != -1) assert_true(i3 >= 0 && (uint64_t)i3 < num_verts, "Wrong index %i. Num verts %i",i3,num_verts);
     
-    vector4 c0 = vert_shader(mesh_get_vertices(m, i0), camera_pos);
-    vector4 c1 = vert_shader(mesh_get_vertices(m, i1), camera_pos);
-    vector4 c2 = i2 > -1 ? vert_shader(mesh_get_vertices(m, i2), camera_pos) : (vector4){};
-    vector4 c3 = i3 > -1 ? vert_shader(mesh_get_vertices(m, i3), camera_pos) : (vector4){};
+    vector4 c0 = vert_shader(mesh_get_vertex(m, i0), camera_pos);
+    vector4 c1 = vert_shader(mesh_get_vertex(m, i1), camera_pos);
+    vector4 c2 = i2 > -1 ? vert_shader(mesh_get_vertex(m, i2), camera_pos) : (vector4){};
+    vector4 c3 = i3 > -1 ? vert_shader(mesh_get_vertex(m, i3), camera_pos) : (vector4){};
     
     if (should_clip(c0) && should_clip(c1)
         && (i2 > -1 ? should_clip(c2) : true)
@@ -110,8 +110,8 @@ int main(int argc, char* argv[]){
     size_t file_size = 0;
     char *file = read_full_file("/resources/Windmill.obj",&file_size);
     
-    primitives prim_type = prim_trig;
-    mesh_t mesh = parse_obj(file, file_size, prim_type);
+    primitives prim_type = primitives_trig;
+    mesh m = parse_obj(file, file_size, prim_type);
     
     ctx.width = 1920;
     ctx.height = 1080;
@@ -123,8 +123,8 @@ int main(int argc, char* argv[]){
         return -1;
     }
     
-    size_t num_segments = mesh_num_segments(&mesh);
-    size_t num_verts = mesh_num_verts(&mesh);
+    size_t num_segments = mesh_num_segments(&m);
+    size_t num_verts = mesh_num_verts(&m);
     
     assert_true(num_segments && num_verts, "Empty mesh");
     
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]){
         fb_clear(&ctx, 0);
         
         for (size_t i = 0; i < num_segments; i++){
-            if (draw((i * prim_type), num_segments * prim_type, prim_type, &mesh, num_verts, mid, (gpu_size){ctx.width,ctx.height}) == -1) return -1;
+            if (draw((i * prim_type), num_segments * prim_type, prim_type, &m, num_verts, mid, (gpu_size){ctx.width,ctx.height}) == -1) return -1;
         }
         commit_draw_ctx(&ctx);
 
@@ -158,7 +158,7 @@ int main(int argc, char* argv[]){
             camera_pos.x += mouse.raw.x * dt;
             camera_pos.y += mouse.raw.y * dt;
         }
-        camera_pos.z -= mouse.raw.scroll * 25 * dt;
+        camera_pos.z -= mouse.raw.scroll * 2500 * dt;
         memset(buf, 0, 16);
         string_format_buf(buf,16,"%i FPS",(int)(1/dt));
         fb_draw_string(&ctx, buf, 0,0, 2, 0xFFFFFFFF);
