@@ -63,8 +63,8 @@ tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh_t *m, s
     
     vector4 c0 = vert_shader(mesh_get_vertices(m, i0), camera_pos);
     vector4 c1 = vert_shader(mesh_get_vertices(m, i1), camera_pos);
-    vector4 c2 = i2 > -1 ? vert_shader(mesh_get_vertices(m, i1), camera_pos) : (vector4){};
-    vector4 c3 = i3 > -1 ? vert_shader(mesh_get_vertices(m, i1), camera_pos) : (vector4){};
+    vector4 c2 = i2 > -1 ? vert_shader(mesh_get_vertices(m, i2), camera_pos) : (vector4){};
+    vector4 c3 = i3 > -1 ? vert_shader(mesh_get_vertices(m, i3), camera_pos) : (vector4){};
     
     if (should_clip(c0) && should_clip(c1)
         && (i2 > -1 ? should_clip(c2) : true)
@@ -95,7 +95,9 @@ tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh_t *m, s
             float y3 = (1-((v3.y+1)*0.5f))*(screen.height-1);
             fb_draw_line(&ctx, x2, y2, x3, y3, 0xFFB4DD13);
             rasterize_quad(v0,v1,v2,v3);
+            fb_draw_line(&ctx, x3, y3, x0, y0, 0xFFB4DD13);
         } else {
+            fb_draw_line(&ctx, x2, y2, x0, y0, 0xFFB4DD13);
             rasterize_triangle(v0,v1,v2);
         }
     }

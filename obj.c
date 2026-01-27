@@ -1,11 +1,17 @@
 #include "obj.h"
 #include "data/format/scanner/scanner.h"
+#include "syscalls/syscalls.h"
 
-void handle_trig(mesh_t *mesh, string_slice sl){
+void push_trig(mesh_t *m, int trig){
+    chunk_array_push(m->segments, &trig);
+}
+
+int handle_trig(mesh_t *mesh, string_slice sl){
     char *s1 = (char*)seek_to(sl.data, '/');
     int segment = (parse_int64(sl.data,s1-sl.data-1) & 0xFFFFFFFF) - 1;
-    chunk_array_push(mesh->segments, &segment);
+    push_trig(mesh, segment);
     //TODO: extra trig data
+    return segment;
 }
 
 void handle_obj_line(void *ctx, string_slice line){
@@ -28,11 +34,19 @@ void handle_obj_line(void *ctx, string_slice line){
     }
     if (first == 'f'){
         if (scan_next(&s) != ' ') return;
-        do {
+        int first_s = -1;
+        int last_s = -1;
+        for (int i = 0; !scan_eof(&s); i++){
             string_slice sl = scan_to(&s, ' ');
             if (sl.length == 0) break;
-            handle_trig(mesh, sl);
-        } while (!scan_eof(&s));//TODO: mesh triangulation. Should be enough to do first point + latest point + current point for each > 3
+            if (i > 2){
+                push_trig(mesh, first_s);
+                push_trig(mesh, last_s);
+            }
+            int seg = handle_trig(mesh, sl);
+            if (i == 0) first_s = seg;
+            last_s = seg;
+        };
     }
 }
 
