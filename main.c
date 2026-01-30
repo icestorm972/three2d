@@ -53,36 +53,35 @@ static inline bool should_clip(vector4 v){//FIXME
             false;
 }
 
-static inline float triangle_area(vector2 a, vector2 b, vector2 c){
+static inline float triangle_area(int_point a, int_point b, int_point c){
     return 0.5f*((b.y-a.y)*(b.x+a.x) + (c.y-b.y)*(c.x+b.x) + (a.y-c.y)*(a.x+c.x));
 }
 
-#define STEP 1
-
-void rasterize_triangle(vector2 v0, vector2 v1, vector2 v2, int trig_id){
+void rasterize_triangle(int_point v0, int_point v1, int_point v2, int trig_id, int downscale){
     aabb2 bb = {};
-    bb.min.x = floor(min(v0.x,min(v1.x,v2.x)));
-    bb.min.y = floor(min(v0.y,min(v1.y,v2.y)));
-    bb.max.x = ceil(max(v0.x,max(v1.x,v2.x)));
-    bb.max.y = ceil(max(v0.y,max(v1.y,v2.y)));
+    int min_x = min(v0.x,min(v1.x,v2.x));
+    int min_y = min(v0.y,min(v1.y,v2.y));
+    int max_x = max(v0.x,max(v1.x,v2.x));
+    int max_y = max(v0.y,max(v1.y,v2.y));
     
-    bb.min.x = clampf(bb.min.x, 0, ctx.width-1);
-    bb.min.y = clampf(bb.min.y, 0, ctx.height-1);
-    bb.max.x = clampf(bb.max.x, 0, ctx.width-1);
-    bb.max.y = clampf(bb.max.y, 0, ctx.height-1);
+    min_x = clamp(min_x, 0, ctx.width-1);
+    min_y = clamp(min_y, 0, ctx.height-1);
+    max_x = clamp(max_x, 0, ctx.width-1);
+    max_y = clamp(max_y, 0, ctx.height-1);
     
     float total_area = triangle_area(v0, v1, v2);
     if (total_area < 1) return;
     
-    for (float y = bb.min.y; y <= bb.max.y; y += STEP){
-        for (float x = bb.min.x; x <= bb.max.x; x += STEP){
-            vector2 p = (vector2){x,y};
-            float a = triangle_area(v0, v1, p);
-            float b = triangle_area(v1, v2, p);
-            float c = triangle_area(v2, v0, p);
-            if (a < 0 || b < 0 || c < 0) continue;
-            ctx.fb[((int)y * ctx.width) + (int)x] = frag_shader((vector4){x,y,0,0},trig_id).color;
-            // fb_fill_rect(&ctx, x, y, STEP, STEP, );
+    for (float y = min_y; y <= max_y; y += downscale){
+        for (float x = min_x; x <= max_x; x += downscale){
+            int_point p = (int_point){x,y};
+            if (triangle_area(v0, v1, p) < 0) continue;
+            if (triangle_area(v1, v2, p) < 0) continue;
+            if (triangle_area(v2, v0, p) < 0) continue;
+            uint32_t color = frag_shader((vector4){x,y,0,0},trig_id).color;
+            for (int yy = 0; yy < downscale && y + yy < ctx.height; yy++)
+                for (int xx = 0; xx < downscale  && x + xx < ctx.width; xx++)
+                    ctx.fb[((int)(y + yy) * ctx.width) + (int)(x + xx)] = color;
         }
     }
     
@@ -136,7 +135,7 @@ tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh *m, siz
             vector2 s3 = {(v3.x+1)*0.5f*(screen.width-1),(1-((v3.y+1)*0.5f))*(screen.height-1)};
             rasterize_quad(s0,s1,s2,s3);
         } else {
-            rasterize_triangle(s0,s1,s2,segment_index);
+            rasterize_triangle((int_point){(int)s0.x,(int)s0.y},(int_point){(int)s1.x,(int)s1.y},(int_point){(int)s2.x,(int)s2.y},segment_index, 2);
         }
     }
     
