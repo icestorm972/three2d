@@ -129,13 +129,17 @@ tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh *m, siz
     vector2 s0 = {(v0.x+1)*0.5f*(screen.width-1),(1-((v0.y+1)*0.5f))*(screen.height-1)};
     vector2 s1 = {(v1.x+1)*0.5f*(screen.width-1),(1-((v1.y+1)*0.5f))*(screen.height-1)};
     
+    float min_depth = min(c0.w,c1.w);
+    
     if (i2 >= 0){
         vector2 s2 = {(v2.x+1)*0.5f*(screen.width-1),(1-((v2.y+1)*0.5f))*(screen.height-1)};
+        min_depth = min(min_depth,c2.w);
         if (i3 >= 0){
+            min_depth = min(min_depth,c3.w);
             vector2 s3 = {(v3.x+1)*0.5f*(screen.width-1),(1-((v3.y+1)*0.5f))*(screen.height-1)};
             rasterize_quad(s0,s1,s2,s3);
         } else {
-            rasterize_triangle((int_point){(int)s0.x,(int)s0.y},(int_point){(int)s1.x,(int)s1.y},(int_point){(int)s2.x,(int)s2.y},segment_index, 2);
+            rasterize_triangle((int_point){(int)s0.x,(int)s0.y},(int_point){(int)s1.x,(int)s1.y},(int_point){(int)s2.x,(int)s2.y},segment_index, 1 + floor(min_depth/50));
         }
     }
     
