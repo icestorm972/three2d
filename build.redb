@@ -1,17 +1,13 @@
 @includeC("redbuild.h")
 @includeC("syscalls/syscalls.h")
 
-bool cred {
-    new_module("credgpu");
-    set_name("mesh");
-    source("mesh.cred");
-    return cred_compile();
-}
-
 bool gpu {
-    if (not cred()){ return false; }
+    if (not make_run("~/redlib","cross")) { return false; }
+    if (not quick_cred("mesh.cred","mesh")){ return false; }
     new_module("gpu");
     set_name("rend");
+    
+    gen_symbols();
     
     set_package_type(package_red);
     set_target(target_native);
