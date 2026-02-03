@@ -10,8 +10,8 @@ enum primitives {
 }
 
 struct mesh {
-    chunk_array:vector3 vertices;
-    chunk_array:int segments;
+    chunk_array:vector3 *vertices;
+    chunk_array:int *segments;
     primitives primitive_type;
     
     size_t num_verts {

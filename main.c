@@ -39,9 +39,9 @@ vector4 vert_shader(vector3 pos, vector3 camera){
 argbcolor frag_shader(vector4 frag_coord, int trig_id){
     return (argbcolor){
         .alpha = 0xFF,
-        .red = (trig_id) % 255,
-        .green = (trig_id + 20) % 255,
-        .blue = (trig_id + 50) % 255,
+        .red = ((trig_id) % 225) + 30,
+        .green = ((trig_id) % 225) + 30,
+        .blue = ((trig_id) % 225) + 30,
     };
 }
 
@@ -58,7 +58,6 @@ static inline float triangle_area(int_point a, int_point b, int_point c){
 }
 
 void rasterize_triangle(int_point v0, int_point v1, int_point v2, int trig_id, int downscale){
-    aabb2 bb = {};
     int min_x = min(v0.x,min(v1.x,v2.x));
     int min_y = min(v0.y,min(v1.y,v2.y));
     int max_x = max(v0.x,max(v1.x,v2.x));
