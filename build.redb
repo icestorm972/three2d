@@ -18,8 +18,9 @@ bool gpu {
     
     if (compile()){
         gen_compile_commands();
-        run();
+        return run();
     }
+    return false;
 }
 
 int main {
