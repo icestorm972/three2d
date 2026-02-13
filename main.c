@@ -13,6 +13,7 @@
 
 draw_ctx ctx = {};
 vector3 camera_pos = {0,0,15};
+bool do_backface_culling = true;
 
 matrix4x4 proj_matrix;
 
@@ -74,7 +75,7 @@ void rasterize_triangle(vector3 v0, vector3 v1, vector3 v2, int trig_id, int dow
     float area_sign = total_area < 0 ? -1.0f : 1.0f;
     total_area *= area_sign;
 
-    if (total_area < 1) return;
+    if ((do_backface_culling && (area_sign<0)) || (total_area < 1)) return;
 
     for (float y = min_y; y <= max_y; y += downscale){
         for (float x = min_x; x <= max_x; x += downscale){
