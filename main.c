@@ -98,7 +98,8 @@ void rasterize_triangle(vector3 v0, vector3 v1, vector3 v2, int trig_id, int dow
             float gamma = area_sign * triangle_area(p, v0, v1);
             if (gamma < 0) continue;
             
-            float depth = (alpha * v0.z + beta * v1.z + gamma * v2.z)/total_area;
+            float new_inv_z = (alpha * v0.z + beta * v1.z + gamma * v2.z)/total_area;
+            if (new_inv_z <= -1.0f || new_inv_z >= 0.0f) continue;
             
             u8 depth_color = (u8)255-(128+((depth-4.5f)*100));
             uint32_t color = (0xFF << 24) | (depth_color << 16) | (depth_color << 8) | depth_color;
