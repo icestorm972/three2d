@@ -26,9 +26,9 @@ void build_proj_matrix(float fov, float aspect, float near, float far){
     
     proj_matrix.m[0][0] = 1.0f/(tanfov*aspect);
     proj_matrix.m[1][1] = 1.0f/tanfov;
-    proj_matrix.m[2][2] = -(far+near)/(far-near);
-    proj_matrix.m[3][2] = -1;
-    proj_matrix.m[2][3] = -(2*far*near)/(far-near);
+    proj_matrix.m[2][2] = -near/(far-near);
+    proj_matrix.m[3][2] = -(far*near)/(far-near);
+    proj_matrix.m[2][3] = -1.0f;
 }
 
 vector4 vert_shader(vector3 pos, vector3 camera){
@@ -48,16 +48,15 @@ argbcolor frag_shader(vector4 frag_coord, int trig_id){
     };
 }
 
-static inline bool should_clip(vector4 v){//FIXME
-    return  v.x <= -v.w || v.x >= v.w ||
+static inline bool should_clip(vector4 v){
+    return v.x <= -v.w || v.x >= v.w ||
              v.y <= -v.w || v.y >= v.w || 
-             v.z <= -v.w || v.z >= v.w ||
-             0 <= v.w;
-            false;
+           v.z <= -v.w || v.z >= 0   ||
+           v.w <= 0;
 }
 
 static inline float triangle_area(vector3 a, vector3 b, vector3 c){
-    return 0.5f*((b.y-a.y)*(b.x+a.x) + (c.y-b.y)*(c.x+b.x) + (a.y-c.y)*(a.x+c.x));
+    return -0.5f*((b.y-a.y)*(b.x+a.x) + (c.y-b.y)*(c.x+b.x) + (a.y-c.y)*(a.x+c.x));
 }
 
 void rasterize_triangle(vector3 v0, vector3 v1, vector3 v2, int trig_id, int downscale){
@@ -72,15 +71,19 @@ void rasterize_triangle(vector3 v0, vector3 v1, vector3 v2, int trig_id, int dow
     max_y = clamp(max_y, 0, ctx.height-1);
     
     float total_area = triangle_area(v0, v1, v2);
+    float area_sign = total_area < 0 ? -1.0f : 1.0f;
+    total_area *= area_sign;
+
     if (total_area < 1) return;
+
     for (float y = min_y; y <= max_y; y += downscale){
         for (float x = min_x; x <= max_x; x += downscale){
             vector3 p = (vector3){x,y,0};
-            float alpha = triangle_area(p, v1, v2);
+            float alpha = area_sign * triangle_area(p, v1, v2);
             if (alpha < 0) continue;
-            float beta = triangle_area(p, v2, v0);
+            float beta = area_sign * triangle_area(p, v2, v0);
             if (beta < 0) continue;
-            float gamma = triangle_area(p, v0, v1);
+            float gamma = area_sign * triangle_area(p, v0, v1);
             if (gamma < 0) continue;
             
             float depth = (alpha * v0.z + beta * v1.z + gamma * v2.z)/total_area;
@@ -128,10 +131,10 @@ tern draw(int segment_index, size_t num_segs, primitives prim_type, mesh *m, siz
     vector4 c2 = i2 > -1 ? vert_shader(mesh_get_vertex(m, i2), camera_pos) : (vector4){};
     vector4 c3 = i3 > -1 ? vert_shader(mesh_get_vertex(m, i3), camera_pos) : (vector4){};
     
-    // if (should_clip(c0) && should_clip(c1)
-        // && (i2 > -1 ? should_clip(c2) : true)
-        // && (i3 > -1 ? should_clip(c3) : true)
-    // ) return false;
+    if (should_clip(c0) && should_clip(c1)
+        && (i2 > -1 ? should_clip(c2) : true)
+        && (i3 > -1 ? should_clip(c3) : true)
+    ) return false;
     
     //NDC
     vector3 v0 = {c0.x/c0.w,c0.y/c0.w,c0.z/c0.w};
