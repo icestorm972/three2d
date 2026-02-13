@@ -17,7 +17,7 @@ bool do_backface_culling = true;
 
 matrix4x4 proj_matrix;
 
-u8 *z_buffer;
+float *z_buffer;
 size_t z_buf_size = 0;
 
 void build_proj_matrix(float fov, float aspect, float near, float far){
@@ -51,7 +51,7 @@ argbcolor frag_shader(vector4 frag_coord, int trig_id){
 
 static inline bool should_clip(vector4 v){
     return v.x <= -v.w || v.x >= v.w ||
-             v.y <= -v.w || v.y >= v.w || 
+           v.y <= -v.w || v.y >= v.w || 
            v.z <= -v.w || v.z >= 0   ||
            v.w <= 0;
 }
@@ -99,17 +99,20 @@ void rasterize_triangle(vector3 v0, vector3 v1, vector3 v2, int trig_id, int dow
             if (gamma < 0) continue;
             
             float depth = (alpha * v0.z + beta * v1.z + gamma * v2.z)/total_area;
+            
             u8 depth_color = (u8)255-(128+((depth-4.5f)*100));
-            
-            u8 current_z = z_buffer[((int)y * ctx.width) + (int)x];
-            if (depth_color > current_z){
-                z_buffer[((int)y * ctx.width) + (int)x] = depth_color;
-            } else continue;
-            
             uint32_t color = (0xFF << 24) | (depth_color << 16) | (depth_color << 8) | depth_color;
+
             for (int yy = 0; yy < downscale && y + yy < ctx.height; yy++)
-                for (int xx = 0; xx < downscale  && x + xx < ctx.width; xx++)
-                    ctx.fb[((int)(y + yy) * ctx.width) + (int)(x + xx)] = color;
+                for (int xx = 0; xx < downscale  && x + xx < ctx.width; xx++) {
+                    int offs = ((int)(y + yy) * ctx.width) + (int)(x + xx);
+
+                    float current_inv_z = z_buffer[offs];
+                    if (new_inv_z > current_inv_z) continue;
+
+                    ctx.fb[offs] = color;
+                    z_buffer[offs] = new_inv_z;
+                }
         }
     }
     
