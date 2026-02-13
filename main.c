@@ -60,16 +60,27 @@ static inline float triangle_area(vector3 a, vector3 b, vector3 c){
     return -0.5f*((b.y-a.y)*(b.x+a.x) + (c.y-b.y)*(c.x+b.x) + (a.y-c.y)*(a.x+c.x));
 }
 
+static inline float ceilf(float val){
+    int64_t whole = (uint64_t)val;
+    float frac = val - (float)whole;
+
+    return frac > 0 ? whole + 1 : whole;
+}
+
+static inline float floorf(float val){
+    return (int64_t)val;
+}
+
 void rasterize_triangle(vector3 v0, vector3 v1, vector3 v2, int trig_id, int downscale){
-    int min_x = min(v0.x,min(v1.x,v2.x));
-    int min_y = min(v0.y,min(v1.y,v2.y));
-    int max_x = max(v0.x,max(v1.x,v2.x));
-    int max_y = max(v0.y,max(v1.y,v2.y));
+    float min_x = floorf(minf(v0.x,minf(v1.x,v2.x)));
+    float min_y = floorf(minf(v0.y,minf(v1.y,v2.y)));
+    float max_x = ceilf(maxf(v0.x,maxf(v1.x,v2.x)));
+    float max_y = ceilf(maxf(v0.y,maxf(v1.y,v2.y)));
     
-    min_x = clamp(min_x, 0, ctx.width-1);
-    min_y = clamp(min_y, 0, ctx.height-1);
-    max_x = clamp(max_x, 0, ctx.width-1);
-    max_y = clamp(max_y, 0, ctx.height-1);
+    min_x = clampf(min_x, 0, ctx.width-1);
+    min_y = clampf(min_y, 0, ctx.height-1);
+    max_x = clampf(max_x, 0, ctx.width-1);
+    max_y = clampf(max_y, 0, ctx.height-1);
     
     float total_area = triangle_area(v0, v1, v2);
     float area_sign = total_area < 0 ? -1.0f : 1.0f;
