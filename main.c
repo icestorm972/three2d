@@ -208,12 +208,13 @@ int main(int argc, char* argv[]){
     
     build_proj_matrix(72, (float)ctx.width/(float)ctx.height, 0.1f, 100);
     
-    float last_time = get_time()/1000.f;
+    u64 last_time = get_time();
+    u64 sample = 0;
     while (!should_close_ctx()){
         begin_drawing(&ctx);
             
-        float time = get_time()/1000.f;
-        float dt = time-last_time;
+        u64 time = get_time();
+        double dt = ((double)time-last_time)/1000;
         last_time = time;
         fb_clear(&ctx, 0);
         
@@ -223,8 +224,12 @@ int main(int argc, char* argv[]){
             if (draw((i * prim_type), num_segments * prim_type, prim_type, &m, num_verts, mid, (gpu_size){ctx.width,ctx.height}) == -1) return -1;
         }
         
-        string_format_buf(buf,16,"%i FPS",(int)(1/dt));
+        if (sample % 10 == 0){
+            memset(buf, 0, 16);
+            string_format_buf(buf,16,"%i FPS",(int)(1/dt));
+        }
         fb_draw_string(&ctx, buf, 0,0, 2, 0xFFFFFFFF);
+        sample++;
         commit_draw_ctx(&ctx);
 
         kbd_event ev = {};
@@ -242,7 +247,6 @@ int main(int argc, char* argv[]){
         }
         camera_pos.z -= mouse.raw.scroll * 250 * adj_dt;
         camera_pos.z = maxf(0,camera_pos.z);
-        memset(buf, 0, 16);
         
     }
     destroy_draw_ctx(&ctx);
